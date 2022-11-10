@@ -112,9 +112,9 @@ public class ProveWithKey {
 		
 		Console.println("  Verify Pre -> {Statement} Post");
 		return proveWithKey(location, inlining);
-}
+	}
 
-public boolean proveStatementWithKey(List<CbCFormula> refinements, List<JavaVariables> refinementsVars, boolean returnStatement, boolean inlining, String callingMethod, String varM, String callingClass, boolean forceProving) {
+	public boolean proveStatementWithKey(List<CbCFormula> refinements, List<JavaVariables> refinementsVars, boolean returnStatement, boolean inlining, String callingMethod, String varM, String callingClass, boolean forceProving) {
 		if (refinements == null || refinements.size() == 0) {
 			File location = createProveStatementWithKey(null, refinementsVars, true, callingMethod, varM, returnStatement, callingClass);
 			if (!forceProving) {

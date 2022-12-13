@@ -29,9 +29,6 @@
     </genClasses>
     <genClasses ecoreClass="cbcclass.ecore#//Field">
       <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcclass.ecore#//Field/visibility"/>
-      <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcclass.ecore#//Field/type"/>
-      <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcclass.ecore#//Field/name"/>
-      <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcclass.ecore#//Field/isStatic"/>
       <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcclass.ecore#//Field/isFinal"/>
       <genFeatures property="Readonly" createChild="false" ecoreFeature="ecore:EAttribute cbcclass.ecore#//Field/displayedName"
           get="String staticString = isStatic? &quot;static &quot; : &quot;&quot;; String finalString = isFinal ? &quot;final &quot; : &quot;&quot;; return visibility + &quot; &quot; + staticString + finalString + type + &quot; &quot; + name;"/>
@@ -57,9 +54,6 @@
       </genFeatures>
       <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcclass.ecore#//Method/isStatic"/>
     </genClasses>
-    <genClasses ecoreClass="cbcclass.ecore#//Parameter">
-      <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcclass.ecore#//Parameter/type"/>
-      <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcclass.ecore#//Parameter/name"/>
-    </genClasses>
+    <genClasses ecoreClass="cbcclass.ecore#//Parameter"/>
   </genPackages>
 </genmodel:GenModel>

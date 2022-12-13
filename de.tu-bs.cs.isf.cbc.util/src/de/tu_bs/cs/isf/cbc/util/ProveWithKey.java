@@ -579,12 +579,10 @@ public class ProveWithKey {
 		content.readGlobalConditions(conds);
 		content.readInvariants(readInvariantsFromClass(uri.split("/")[4]));
 
-		//content.setPreFromCondition(preCondition);
-		//content.setPostFromCondition(postCondition);
 		content.setPreFromCondition(preCondition + applyLiskovInheritance(preCondition, Parser.getConditionFromCondition(formula.getStatement().getPreCondition().getName()), "pre"));
 		content.setPostFromCondition(postCondition + applyLiskovInheritance(postCondition, Parser.getConditionFromCondition(formula.getStatement().getPostCondition().getName()), "post"));
 		content.rename(renaming);
-		content.replaceThisWithSelf();
+		//content.replaceThisWithSelf();
 		content.addSelfForFields(vars);
 		content.addSelfForFields(readFieldsFromClass(uri.split("/")[4]));
 

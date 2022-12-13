@@ -9,9 +9,12 @@ import org.junit.jupiter.api.Test;
 
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.CbcclassFactory;
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Field;
+import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Parameter;
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Visibility;
 import de.tu_bs.cs.isf.cbc.cbcmodel.CbcmodelFactory;
 import de.tu_bs.cs.isf.cbc.cbcmodel.CbcmodelPackage;
+import de.tu_bs.cs.isf.cbc.cbcmodel.Condition;
+import de.tu_bs.cs.isf.cbc.cbcmodel.GlobalConditions;
 import de.tu_bs.cs.isf.cbc.cbcmodel.JavaVariable;
 import de.tu_bs.cs.isf.cbc.cbcmodel.JavaVariables;
 import de.tu_bs.cs.isf.cbc.cbcmodel.VariableKind;
@@ -36,100 +39,10 @@ class KeYFileContentTest {
 				+ "    Heap heapAtPre;"
 				+ "}"
 				+ "\\problem {"
-				+ "    ( & wellFormed(heap)) -> {"
+				+ "    (wellFormed(heap)) -> {"
 				+ "        heapAtPre := heap"
 				+ "    } "
 				+ "    \\<{}\\> ()"
-				+ "}",
-				content.getKeYStatementContent());
-	}
-
-	@Test
-	void testSetHelper() {
-		content.setHelper("foo.key");
-		assertEqualsNormalized(
-				"\\javaSource \"location/src\";"
-				+ "\\include \"foo.key\";"
-				+ "\\programVariables {"
-				+ "    Heap heapAtPre;"
-				+ "}"
-				+ "\\problem {"
-				+ "    ( & wellFormed(heap)) -> {"
-				+ "        heapAtPre := heap"
-				+ "    } \\<{}\\> ()"
-				+ "}",
-				content.getKeYStatementContent());
-	}
-	
-	
-	@Test
-	void testSetProgramVariables() {
-		content.setProgramVariables("foo; bar;");
-		assertEqualsNormalized(
-				"\\javaSource \"location/src\";"
-				+ "\\include \"helper.key\";"
-				+ "\\programVariables {"
-				+ "    foo;"
-				+ "    bar;"
-				+ "    Heap heapAtPre;"
-				+ "}"
-				+ "\\problem {"
-				+ "    ( & wellFormed(heap)) -> {"
-				+ "        heapAtPre := heap"
-				+ "    } \\<{}\\> ()"
-				+ "}",
-				content.getKeYStatementContent());
-		
-	}
-	
-	@Test
-	void testSetGLobalConditions() {
-		content.setGlobalConditions("foo & bar");
-		assertEqualsNormalized(
-				"\\javaSource \"location/src\";"
-				+ "\\include \"helper.key\";"
-				+ "\\programVariables {"
-				+ "    Heap heapAtPre;"
-				+ "}"
-				+ "\\problem {"
-				+ "    (foo & bar & wellFormed(heap)) -> {"
-				+ "        heapAtPre := heap"
-				+ "    } \\<{}\\> ()"
-				+ "}",
-				content.getKeYStatementContent());
-	}
-	
-	@Test
-	void testSetConfitionsObjectsCreated() {
-		content.setConditionObjectsCreated("foo & bar");
-		assertEqualsNormalized(
-				"\\javaSource \"location/src\";"
-				+ "\\include \"helper.key\";"
-				+ "\\programVariables {"
-				+ "    Heap heapAtPre;"
-				+ "}"
-				+ "\\problem {"
-				+ "    (foo & bar & wellFormed(heap)) -> {"
-				+ "        heapAtPre := heap"
-				+ "    } \\<{}\\> ()"
-				+ "}",
-				content.getKeYStatementContent());
-	}
-
-	
-	@Test
-	void testSetSelfConditions() {
-		content.setSelfConditions("foo & bar");
-		assertEqualsNormalized(
-				"\\javaSource \"location/src\";"
-				+ "\\include \"helper.key\";"
-				+ "\\programVariables {"
-				+ "    Heap heapAtPre;"
-				+ "}"
-				+ "\\problem {"
-				+ "    (foo & bar & wellFormed(heap)) -> {"
-				+ "        heapAtPre := heap"
-				+ "    } \\<{}\\> ()"
 				+ "}",
 				content.getKeYStatementContent());
 	}
@@ -144,18 +57,30 @@ class KeYFileContentTest {
 		EList<JavaVariable> list = new BasicEList<>();
 		JavaVariable var;
 		
-		String[] varNames = {
-				"int foo",
-				"static int bar",
-				"non-null int foobar",
-				"static non-null int baz",
-		};
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("int");
+		var.setName("foo");
+		list.add(var);
 		
-		for (String name : varNames) {
-			var = CbcmodelFactory.eINSTANCE.createJavaVariable();
-			var.setName(name);
-			list.add(var);
-		}
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("int");
+		var.setName("bar");
+		var.setIsStatic(true);
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("int");
+		var.setName("foobar");
+		var.setIsNonNull(true);
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("int");
+		var.setName("baz");
+		var.setIsNonNull(true);
+		var.setIsStatic(true);
+		list.add(var);
+		
 		
 		JavaVariables variables = CbcmodelFactory.eINSTANCE.createJavaVariables();
 		variables.eSet(CbcmodelPackage.eINSTANCE.getJavaVariables_Variables(), list);
@@ -173,7 +98,7 @@ class KeYFileContentTest {
 				+ "    Heap heapAtPre;"
 				+ "}"
 				+ "\\problem {"
-				+ "    ( & wellFormed(heap)) -> {"
+				+ "    (wellFormed(heap)) -> {"
 				+ "        heapAtPre := heap"
 				+ "    } \\<{}\\> ()"
 				+ "}",
@@ -185,18 +110,29 @@ class KeYFileContentTest {
 		EList<JavaVariable> list = new BasicEList<>();
 		JavaVariable var;
 		
-		String[] varNames = {
-				"int[] foo",
-				"static int[] bar",
-				"non-null int[] foobar",
-				"static non-null int[] baz",
-		};
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("int[]");
+		var.setName("foo");
+		list.add(var);
 		
-		for (String name : varNames) {
-			var = CbcmodelFactory.eINSTANCE.createJavaVariable();
-			var.setName(name);
-			list.add(var);
-		}
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("int[]");
+		var.setName("bar");
+		var.setIsStatic(true);
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("int[]");
+		var.setName("foobar");
+		var.setIsNonNull(true);
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("int[]");
+		var.setName("baz");
+		var.setIsNonNull(true);
+		var.setIsStatic(true);
+		list.add(var);
 		
 		JavaVariables variables = CbcmodelFactory.eINSTANCE.createJavaVariables();
 		variables.eSet(CbcmodelPackage.eINSTANCE.getJavaVariables_Variables(), list);
@@ -215,7 +151,7 @@ class KeYFileContentTest {
 				+ "}"
 				+ "\\problem {"
 				+ "    ("
-				+ "        & foo.<created>=TRUE"
+				+ "        foo.<created>=TRUE"
 				+ "        & bar.<created>=TRUE"
 				+ "        & foobar.<created>=TRUE"
 				+ "        & baz.<created>=TRUE "
@@ -230,21 +166,35 @@ class KeYFileContentTest {
 	@Test
 	void testAddVariablesParam() {
 		EList<JavaVariable> list = new BasicEList<>();
-		JavaVariable var;
+JavaVariable var;
 		
-		String[] varNames = {
-				"Object foo",
-				"static Object bar",
-				"non-null Object foobar",
-				"static non-null Object baz",
-		};
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("Object");
+		var.setName("foo");
+		var.setKind(VariableKind.PARAM);
+		list.add(var);
 		
-		for (String name : varNames) {
-			var = CbcmodelFactory.eINSTANCE.createJavaVariable();
-			var.setName(name);
-			var.setKind(VariableKind.PARAM);
-			list.add(var);
-		}
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("Object");
+		var.setName("bar");
+		var.setIsStatic(true);
+		var.setKind(VariableKind.PARAM);
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("Object");
+		var.setName("foobar");
+		var.setIsNonNull(true);
+		var.setKind(VariableKind.PARAM);
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("Object");
+		var.setName("baz");
+		var.setIsNonNull(true);
+		var.setIsStatic(true);
+		var.setKind(VariableKind.PARAM);
+		list.add(var);
 		
 		JavaVariables variables = CbcmodelFactory.eINSTANCE.createJavaVariables();
 		variables.eSet(CbcmodelPackage.eINSTANCE.getJavaVariables_Variables(), list);
@@ -263,7 +213,7 @@ class KeYFileContentTest {
 				+ "}"
 				+ "\\problem {"
 				+ "    ("
-				+ "        & Object::exactInstance(foobar)=TRUE"
+				+ "        Object::exactInstance(foobar)=TRUE"
 				+ "        & foobar.<created>=TRUE"
 				+ "        & foobar!=null"
 				+ "        & Object::exactInstance(baz)=TRUE"
@@ -282,30 +232,35 @@ class KeYFileContentTest {
 		EList<JavaVariable> list = new BasicEList<>();
 		JavaVariable var;
 		
-		String[] varNames1 = {
-				"int foo",
-				"static int bar",
-		};
-		for (String name : varNames1) {
-			var = CbcmodelFactory.eINSTANCE.createJavaVariable();
-			var.setName(name);
-			list.add(var);
-		}
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("int");
+		var.setName("foo");
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("int");
+		var.setName("bar");
+		var.setIsStatic(true);
+		list.add(var);
 		
 		JavaVariable returnVar = CbcmodelFactory.eINSTANCE.createJavaVariable();
-		returnVar.setName("int here");
+		returnVar.setName("here");
+		returnVar.setType("int");
 		returnVar.setKind(VariableKind.RETURN);
 		list.add(returnVar);
 		
-		String[] varNames2 = {
-				"non-null int foobar",
-				"static non-null int baz",
-		};
-		for (String name : varNames2) {
-			var = CbcmodelFactory.eINSTANCE.createJavaVariable();
-			var.setName(name);
-			list.add(var);
-		}
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("int");
+		var.setName("foobar");
+		var.setIsNonNull(true);
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setType("int");
+		var.setName("baz");
+		var.setIsNonNull(true);
+		var.setIsStatic(true);
+		list.add(var);
 		
 		JavaVariables variables = CbcmodelFactory.eINSTANCE.createJavaVariables();
 		variables.eSet(CbcmodelPackage.eINSTANCE.getJavaVariables_Variables(), list);
@@ -324,7 +279,7 @@ class KeYFileContentTest {
 				+ "    Heap heapAtPre;"
 				+ "}"
 				+ "\\problem {"
-				+ "    ( & wellFormed(heap)) -> {"
+				+ "    (wellFormed(heap)) -> {"
 				+ "        heapAtPre := heap"
 				+ "    } \\<{}\\> ()"
 				+ "}",
@@ -341,14 +296,14 @@ class KeYFileContentTest {
 		field.setName("foo");
 		field.setType("int");
 		field.setVisibility(Visibility.PUBLIC);
-		field.setIsStatic(false);
+		//field.setIsStatic(false);
 		list.add(field);
 		
 		field = CbcclassFactory.eINSTANCE.createField();
 		field.setName("bar");
 		field.setType("Object");
 		field.setVisibility(Visibility.PUBLIC);
-		field.setIsStatic(false);
+		//field.setIsStatic(false);
 		list.add(field);
 		
 		
@@ -365,7 +320,7 @@ class KeYFileContentTest {
 				+ "}"
 				+ "\\problem {"
 				+ "    ("
-				+ "        & Object::exactInstance(self.bar)=TRUE"
+				+ "        Object::exactInstance(self.bar)=TRUE"
 				+ "        & self.bar.<created>=TRUE"
 				+ "        & self.bar!=null"
 				+ "        & wellFormed(heap)"
@@ -376,6 +331,231 @@ class KeYFileContentTest {
 				content.getKeYStatementContent());
 	}
 	
+	@Test
+	void testAddParams() {
+		EList<Parameter> list = new BasicEList<>();
+		Parameter param;
+	
+		
+		param = CbcclassFactory.eINSTANCE.createParameter();
+		param.setName("foo");
+		param.setType("int");
+		list.add(param);
+		
+		param = CbcclassFactory.eINSTANCE.createParameter();
+		param.setName("bar");
+		param.setType("Object");
+		list.add(param);
+		
+		
+		JavaVariables variables = CbcmodelFactory.eINSTANCE.createJavaVariables();
+		variables.eSet(CbcmodelPackage.eINSTANCE.getJavaVariables_Params(), list);
+		
+		
+		content.readVariables(variables);
+		assertEqualsNormalized(
+				"\\javaSource \"location/src\";"
+				+ "\\include \"helper.key\";"
+				+ "\\programVariables {"
+				+ "    int foo;"
+				+ "    Object bar;"
+				+ "    Heap heapAtPre;"
+				+ "}"
+				+ "\\problem {"
+				+ "    ("
+				+ "        wellFormed(heap)"
+				+ "    ) -> {"
+				+ "        heapAtPre := heap"
+				+ "    } \\<{}\\> ()"
+				+ "}",
+				content.getKeYStatementContent());
+	}
+	
+	@Test
+	void testAddParamsArray() {
+		EList<Parameter> list = new BasicEList<>();
+		Parameter param;
+	
+		
+		param = CbcclassFactory.eINSTANCE.createParameter();
+		param.setName("foo");
+		param.setType("int[]");
+		list.add(param);
+		
+		param = CbcclassFactory.eINSTANCE.createParameter();
+		param.setName("bar");
+		param.setType("Object[]");
+		list.add(param);
+		
+		
+		JavaVariables variables = CbcmodelFactory.eINSTANCE.createJavaVariables();
+		variables.eSet(CbcmodelPackage.eINSTANCE.getJavaVariables_Params(), list);
+		
+		
+		content.readVariables(variables);
+		assertEqualsNormalized(
+				"\\javaSource \"location/src\";"
+				+ "\\include \"helper.key\";"
+				+ "\\programVariables {"
+				+ "    int[] foo;"
+				+ "    Object[] bar;"
+				+ "    Heap heapAtPre;"
+				+ "}"
+				+ "\\problem {"
+				+ "    ("
+				+ "        foo.<created> = TRUE"
+				+ "        & bar.<created> = TRUE"
+				+ "        & wellFormed(heap)"
+				+ "    ) -> {"
+				+ "        heapAtPre := heap"
+				+ "    } \\<{}\\> ()"
+				+ "}",
+				content.getKeYStatementContent());
+	}
+	
+	@Test
+	void testAddParamsNonNull() {
+		EList<Parameter> list = new BasicEList<>();
+		Parameter param;
+	
+		
+		param = CbcclassFactory.eINSTANCE.createParameter();
+		param.setName("foo");
+		param.setType("int");
+		param.setIsNonNull(true);
+		list.add(param);
+		
+		param = CbcclassFactory.eINSTANCE.createParameter();
+		param.setName("bar");
+		param.setType("Object");
+		param.setIsNonNull(true);
+		list.add(param);
+		
+		
+		JavaVariables variables = CbcmodelFactory.eINSTANCE.createJavaVariables();
+		variables.eSet(CbcmodelPackage.eINSTANCE.getJavaVariables_Params(), list);
+		
+		
+		content.readVariables(variables);
+		assertEqualsNormalized(
+				"\\javaSource \"location/src\";"
+				+ "\\include \"helper.key\";"
+				+ "\\programVariables {"
+				+ "    int foo;"
+				+ "    Object bar;"
+				+ "    Heap heapAtPre;"
+				+ "}"
+				+ "\\problem {"
+				+ "    ("
+				+ "        Object::exactInstance(bar)=TRUE"
+				+ "        & bar.<created>=TRUE"
+				+ "        & bar!=null"
+				+ "        & wellFormed(heap)"
+				+ "    ) -> {"
+				+ "        heapAtPre := heap"
+				+ "    } \\<{}\\> ()"
+				+ "}",
+				content.getKeYStatementContent());
+	}
+	
+	@Test
+	void testAddParamReturn() {
+		EList<Parameter> list = new BasicEList<>();
+		Parameter var;
+		
+		var = CbcclassFactory.eINSTANCE.createParameter();
+		var.setName("foo");
+		var.setType("int");
+		list.add(var);
+		
+		var = CbcclassFactory.eINSTANCE.createParameter();
+		var.setName("bar");
+		var.setType("int");
+		list.add(var);
+		
+		Parameter returnParam = CbcclassFactory.eINSTANCE.createParameter();
+		returnParam.setName("ret");
+		returnParam.setType("int");
+		list.add(returnParam);
+		
+		var = CbcclassFactory.eINSTANCE.createParameter();
+		var.setName("foobar");
+		var.setType("int");
+		list.add(var);
+		
+		var = CbcclassFactory.eINSTANCE.createParameter();
+		var.setName("baz");
+		var.setType("int");
+		list.add(var);
+		
+		
+		
+		JavaVariables variables = CbcmodelFactory.eINSTANCE.createJavaVariables();
+		variables.eSet(CbcmodelPackage.eINSTANCE.getJavaVariables_Params(), list);
+		
+		JavaVariable returnVar = content.readVariables(variables);
+		
+		assertEquals(returnVar.getName(), returnParam.getName());
+		assertEqualsNormalized(
+				"\\javaSource \"location/src\";"
+				+ "\\include \"helper.key\";"
+				+ "\\programVariables {"
+				+ "    int foo;"
+				+ "    int bar;"
+				+ "    int ret;"
+				+ "    int foobar;"
+				+ "    int baz;"
+				+ "    Heap heapAtPre;"
+				+ "}"
+				+ "\\problem {"
+				+ "    ( wellFormed(heap)) -> {"
+				+ "        heapAtPre := heap"
+				+ "    } \\<{}\\> ()"
+				+ "}",
+				content.getKeYStatementContent());
+	}
+	
+
+	@Test
+	void testAddGlobalConditions() {
+		EList<Condition> list = new BasicEList<>();
+		Condition cond;
+		
+		cond = CbcmodelFactory.eINSTANCE.createCondition();
+		cond.setName("cond1");
+		list.add(cond);
+		
+		cond = CbcmodelFactory.eINSTANCE.createCondition();
+		cond.setName("cond2");
+		list.add(cond);
+		
+		cond = CbcmodelFactory.eINSTANCE.createCondition();
+		cond.setName("cond3");
+		list.add(cond);
+		
+		
+		GlobalConditions conditions = CbcmodelFactory.eINSTANCE.createGlobalConditions();
+		conditions.eSet(CbcmodelPackage.eINSTANCE.getGlobalConditions_Conditions(), list);
+		
+		content.readGlobalConditions(conditions);
+		assertEqualsNormalized(
+				"\\javaSource \"location/src\";"
+				+ "\\include \"helper.key\";"
+				+ "\\programVariables {"
+				+ "    Heap heapAtPre;"
+				+ "}"
+				+ "\\problem {"
+				+ "    ("
+				+ "        cond1"
+				+ "        & cond2"
+				+ "        & cond3"
+				+ "        & wellFormed(heap)"
+				+ "    ) -> {"
+				+ "        heapAtPre := heap"
+				+ "    } \\<{}\\> ()"
+				+ "}",
+				content.getKeYStatementContent());
+	}
 	
 	static void assertEqualsNormalized(String expected, String actual) {
 		//KeYFileContent is really inconsistent with its spacing, so we normalize it.

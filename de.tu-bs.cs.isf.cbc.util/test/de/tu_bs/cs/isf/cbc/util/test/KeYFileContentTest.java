@@ -13,6 +13,8 @@ import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Parameter;
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Visibility;
 import de.tu_bs.cs.isf.cbc.cbcmodel.CbcmodelFactory;
 import de.tu_bs.cs.isf.cbc.cbcmodel.CbcmodelPackage;
+import de.tu_bs.cs.isf.cbc.cbcmodel.Condition;
+import de.tu_bs.cs.isf.cbc.cbcmodel.GlobalConditions;
 import de.tu_bs.cs.isf.cbc.cbcmodel.JavaVariable;
 import de.tu_bs.cs.isf.cbc.cbcmodel.JavaVariables;
 import de.tu_bs.cs.isf.cbc.cbcmodel.VariableKind;
@@ -559,6 +561,47 @@ class KeYFileContentTest {
 				content.getKeYStatementContent());
 	}
 	
+
+	@Test
+	void testAddGlobalConditions() {
+		EList<Condition> list = new BasicEList<>();
+		Condition cond;
+		
+		cond = CbcmodelFactory.eINSTANCE.createCondition();
+		cond.setName("cond1");
+		list.add(cond);
+		
+		cond = CbcmodelFactory.eINSTANCE.createCondition();
+		cond.setName("cond2");
+		list.add(cond);
+		
+		cond = CbcmodelFactory.eINSTANCE.createCondition();
+		cond.setName("cond3");
+		list.add(cond);
+		
+		
+		GlobalConditions conditions = CbcmodelFactory.eINSTANCE.createGlobalConditions();
+		conditions.eSet(CbcmodelPackage.eINSTANCE.getGlobalConditions_Conditions(), list);
+		
+		content.readGlobalConditions(conditions);
+		assertEqualsNormalized(
+				"\\javaSource \"location/src\";"
+				+ "\\include \"helper.key\";"
+				+ "\\programVariables {"
+				+ "    Heap heapAtPre;"
+				+ "}"
+				+ "\\problem {"
+				+ "    ("
+				+ "        & cond1"
+				+ "        & cond2"
+				+ "        & cond3"
+				+ "        & wellFormed(heap)"
+				+ "    ) -> {"
+				+ "        heapAtPre := heap"
+				+ "    } \\<{}\\> ()"
+				+ "}",
+				content.getKeYStatementContent());
+	}
 	
 	static void assertEqualsNormalized(String expected, String actual) {
 		//KeYFileContent is really inconsistent with its spacing, so we normalize it.

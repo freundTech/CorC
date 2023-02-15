@@ -82,10 +82,10 @@
       <genFeatures property="None" children="true" createChild="true" ecoreFeature="ecore:EReference cbcmodel.ecore#//JavaVariables/params"/>
     </genClasses>
     <genClasses ecoreClass="cbcmodel.ecore#//JavaVariable">
+      <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcmodel.ecore#//JavaVariable/name"/>
       <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcmodel.ecore#//JavaVariable/kind"/>
       <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcmodel.ecore#//JavaVariable/displayedName"
           get="return getKind() + &quot; &quot; + getName();"/>
-      <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcmodel.ecore#//JavaVariable/isStatic"/>
     </genClasses>
     <genClasses ecoreClass="cbcmodel.ecore#//GlobalConditions">
       <genFeatures property="None" children="true" createChild="true" ecoreFeature="ecore:EReference cbcmodel.ecore#//GlobalConditions/conditions"/>
@@ -106,11 +106,5 @@
     </genClasses>
     <genClasses ecoreClass="cbcmodel.ecore#//StrengthWeakStatement"/>
     <genClasses ecoreClass="cbcmodel.ecore#//OriginalStatement"/>
-    <genClasses image="false" ecoreClass="cbcmodel.ecore#//AbstractVariable">
-      <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcmodel.ecore#//AbstractVariable/name"/>
-      <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcmodel.ecore#//AbstractVariable/type"/>
-      <genFeatures createChild="false" ecoreFeature="ecore:EAttribute cbcmodel.ecore#//AbstractVariable/isNonNull"/>
-      <genFeatures property="Readonly" createChild="false" ecoreFeature="ecore:EAttribute cbcmodel.ecore#//AbstractVariable/displayName"/>
-    </genClasses>
   </genPackages>
 </genmodel:GenModel>

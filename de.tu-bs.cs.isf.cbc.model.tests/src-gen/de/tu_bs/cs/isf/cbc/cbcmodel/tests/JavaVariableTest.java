@@ -6,7 +6,6 @@ import de.tu_bs.cs.isf.cbc.cbcmodel.CbcmodelFactory;
 import de.tu_bs.cs.isf.cbc.cbcmodel.JavaVariable;
 
 import junit.framework.TestCase;
-
 import junit.textui.TestRunner;
 
 /**
@@ -66,6 +65,7 @@ public class JavaVariableTest extends TestCase {
 	 * <!-- end-user-doc -->
 	 * @generated
 	 */
+	@Override
 	protected JavaVariable getFixture() {
 		return fixture;
 	}

@@ -91,7 +91,9 @@
       </eAnnotations>
     </eStructuralFeatures>
   </eClassifiers>
-  <eClassifiers xsi:type="ecore:EClass" name="JavaVariable" eSuperTypes="#//BaseVariable">
+  <eClassifiers xsi:type="ecore:EClass" name="JavaVariable">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"
+        defaultValueLiteral="int a"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="kind" unique="false" eType="#//VariableKind"
         defaultValueLiteral="LOCAL"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="displayedName" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"
@@ -101,7 +103,6 @@
         <details key="get" value="return getKind() + &quot; &quot; + getName();"/>
       </eAnnotations>
     </eStructuralFeatures>
-    <eStructuralFeatures xsi:type="ecore:EAttribute" name="isStatic" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EBoolean"/>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="GlobalConditions">
     <eStructuralFeatures xsi:type="ecore:EReference" name="conditions" upperBound="-1"
@@ -141,12 +142,4 @@
     <eLiterals name="CONJUNCTIVE_CONTRACTING" value="2" literal="CONJUNCTIVE_CONTRACTING"/>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="OriginalStatement" eSuperTypes="#//AbstractStatement"/>
-  <eClassifiers xsi:type="ecore:EClass" name="BaseVariable" abstract="true">
-    <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"
-        defaultValueLiteral="int a"/>
-    <eStructuralFeatures xsi:type="ecore:EAttribute" name="type" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
-    <eStructuralFeatures xsi:type="ecore:EAttribute" name="isNonNull" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EBoolean"/>
-    <eStructuralFeatures xsi:type="ecore:EAttribute" name="displayName" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"
-        changeable="false" derived="true"/>
-  </eClassifiers>
 </ecore:EPackage>

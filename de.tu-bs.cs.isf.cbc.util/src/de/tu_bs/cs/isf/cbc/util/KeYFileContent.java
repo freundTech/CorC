@@ -1,15 +1,27 @@
 package de.tu_bs.cs.isf.cbc.util;
 
+import java.io.StreamTokenizer;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import org.eclipse.core.resources.IProject;
+import org.eclipse.emf.ecore.EObject;
+import org.eclipse.emf.ecore.resource.Resource;
 import org.hamcrest.core.IsInstanceOf;
 import org.stringtemplate.v4.compiler.CodeGenerator.primary_return;
 
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Field;
+import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Method;
+import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.ModelClass;
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Parameter;
 import de.tu_bs.cs.isf.cbc.cbcmodel.BaseVariable;
 import de.tu_bs.cs.isf.cbc.cbcmodel.CbCFormula;
@@ -18,6 +30,7 @@ import de.tu_bs.cs.isf.cbc.cbcmodel.Condition;
 import de.tu_bs.cs.isf.cbc.cbcmodel.GlobalConditions;
 import de.tu_bs.cs.isf.cbc.cbcmodel.JavaVariable;
 import de.tu_bs.cs.isf.cbc.cbcmodel.JavaVariables;
+import de.tu_bs.cs.isf.cbc.cbcmodel.Rename;
 import de.tu_bs.cs.isf.cbc.cbcmodel.Renaming;
 import de.tu_bs.cs.isf.cbc.cbcmodel.VariableKind;
 
@@ -37,17 +50,27 @@ public class KeYFileContent {
 	private Renaming renaming;
 	private CbCFormula self;
 
-	private List<BaseVariable> programVariables;
+	private JavaVariables programVariables;
 	private List<Condition> globalConditions;
 	private List<Condition> preConditions;
 	private List<Condition> postConditions;
+	// TODO: ProveWithKey passes this to us as String. It would be better to keep it as Variable.
+	private List<String> unmodifiableVars;
+	
+	private Map<String, List<Field>> methodClassVarMap = null;
+	private Map<String, String> returnTypeMap = null;
 
 
 	public KeYFileContent() {
-		programVariables = new ArrayList<>();
+		programVariables = CbcmodelFactory.eINSTANCE.createJavaVariables();
 		globalConditions = new ArrayList<>();
 		preConditions = new ArrayList<>();
 		postConditions = new ArrayList<>();
+		
+		unmodifiableVars = new ArrayList<>();
+		
+		methodClassVarMap = initMethodClassVarMap();
+		returnTypeMap = initReturnTypeMap();
 	}
 
 	
@@ -74,27 +97,30 @@ public class KeYFileContent {
 	public JavaVariable readVariables(JavaVariables vars) {
 		JavaVariable returnVariable = null;
 		if (vars != null) {
-			for (JavaVariable var : vars.getVariables()) {
+			// TODO: For some reason we get a ConcurrentModificationException when we don't copy our list first
+			List<JavaVariable> variables = new ArrayList<>();
+			variables.addAll(vars.getVariables());
+			for (JavaVariable var : variables) {
 				if (var.getKind() == VariableKind.RETURN || var.getKind() == VariableKind.RETURNPARAM) {
 					returnVariable = var;
 				}
-				programVariables.add(var);
+				programVariables.getVariables().add(var);
 			}
 			for (Parameter param : vars.getParams()) {
 				
 				if (param.getName().equals("ret")) {
 					returnVariable = CbcmodelFactory.eINSTANCE.createJavaVariable();
 					returnVariable.setKind(VariableKind.RETURNPARAM);
-					returnVariable.setName(param.getName());
-					returnVariable.setType(param.getType());
+					returnVariable.setName(param.getType() + " " + param.getName());
 				}
-				programVariables.add(param);
+				programVariables.getParams().add(param);
 			}
 			for (Field field : vars.getFields()) {
-				programVariables.add(field);
+				programVariables.getFields().add(field);
 			}
 
 		}
+		
 		return returnVariable;
 	}
 	
@@ -145,6 +171,12 @@ public class KeYFileContent {
 		}
 	}
 	
+	public void addUnmodifiableVars(List<String> unmodifiedVariables) {
+		for (String var : unmodifiedVariables) {
+			this.unmodifiableVars.add(var);
+		}
+	}
+	
 	public void rename(Renaming renaming) {
 		this.renaming = renaming;
 	}
@@ -162,17 +194,20 @@ public class KeYFileContent {
 	}
 	
 	public String getKeYContent(boolean withStatement) {
-		StringBuilder builder = new StringBuilder();
-		builder.append(getKeyHeader());
-		builder.append(getKeyProblem());
-		if (withStatement) 
-			builder.append(" \\<{" + statement + "}\\>");
+		List<String> oldKeywords = extractOldKeywordVariables();
+		Map<String, OldReplacement> oldReplacements = addOldVariables(self, oldKeywords);
 		
-		builder.append(" (" + getPostString() + ")}");
+		StringBuilder builder = new StringBuilder();
+		builder.append(getKeyHeader(oldReplacements));
+		builder.append(getKeyProblem(oldReplacements));
+		if (withStatement) 
+			builder.append(" \\<{" + renameStatement(statement) + "}\\>");
+		
+		builder.append(" (" + getPostConditionsString(oldReplacements) + ")}");
 		return builder.toString();
 	}
 	
-	private String getKeyHeader() {
+	private String getKeyHeader(Map<String, OldReplacement> oldReplacements) {
 		return MessageFormat.format(
 				"\\javaSource \"{0}\";\n"
 				+ "\\include \"{1}\";\n"
@@ -182,105 +217,177 @@ public class KeYFileContent {
 				+ "'}'", 
 				location + srcFolder,
 				helper,
-				getProgramVariablesString());
+				getProgramVariablesString(oldReplacements));
 	}
 	
-	private String getKeyProblem() {
-		List<String> preConditions = new ArrayList<>();
-		preConditions.add(getGlobalConditionsString());
-		preConditions.add(getConditionObjectsCreatedString());
-		preConditions.add(getSelfConditionsString());
-	    preConditions.add("wellFormed(heap)");
-		preConditions.removeIf(v -> v == null);
-		
-	    String preConditionsString = String.join(" & ", preConditions);
-	    
-	    List<String> postConditions = new ArrayList<>();
-	    postConditions.add("heapAtPre := heap");
-	    postConditions.add(getAssignment());
-	    postConditions.removeIf(v -> v == null);
-	    
-	    String postConditionsString = String.join(" || ", postConditions);
-	    
+	private String getKeyProblem(Map<String, OldReplacement> oldReplacements) {
 		return MessageFormat.format("\\problem '{'({0}) -> '{'"
 				+ "{1}"
 				+ "'}'", 
-				preConditionsString, postConditionsString);
+				getPreConditionsString(oldReplacements), getAssignmentString(oldReplacements));
 	}
 	
-	private String getProgramVariablesString() {
+	private String getProgramVariablesString(Map<String, OldReplacement> oldReplacements) {
 		StringBuilder builder = new StringBuilder();
-		for (BaseVariable var : programVariables) {
-			if (!(var instanceof Field)) {
-				builder.append(var.getType() + " " + var.getName() + ";\n");
-			}
+		for (JavaVariable var : programVariables.getVariables()) {
+			builder.append(removeStaticNonNull(var.getName()) + ";\n");
 		}
+		for (Parameter param : programVariables.getParams()) {
+			builder.append(removeStaticNonNull(param.getType() + " " + param.getName()) + ";\n");
+		}
+		
+		for (String unmodifiableVar : getUnmodifiableProgramVars()) {
+			builder.append(removeStaticNonNull(unmodifiableVar) + ";\n");
+		}
+		
+		for (String var : oldReplacements.keySet()) {
+			builder.append(removeStaticNonNull(var) + oldReplacements.get(var).index + OLD_VARS_SUFFIX + ";\n");
+		}
+		
+		
 		
 		return builder.toString();
 	}
 
-	private String getPreString() {
-		return null;
+	private String getPreConditionsString(Map<String, OldReplacement> oldReplacements) {
+		List<String> preConditions = new ArrayList<>();
+		preConditions.addAll(this.preConditions.stream().map(Condition::getName).toList());
+		preConditions.add(getGlobalConditionsString(oldReplacements));
+		preConditions.add(getConditionObjectsCreatedString(oldReplacements));
+		preConditions.add(getSelfConditionsString());
+	    preConditions.add("wellFormed(heap)");
+		preConditions.removeIf(v -> v.equals(""));
+		
+	    String result = String.join(" & ", preConditions);
+		
+		return replaceOldKeyword(result, oldReplacements);
 	}
 	
-	private String getPostString() {
-		return "";
+	private String getPostConditionsString(Map<String, OldReplacement> oldReplacements) {
+		List<String> postConditions = new ArrayList<>();
+		postConditions.addAll(this.postConditions.stream().map(Condition::getName).toList());
+		postConditions.addAll(getUnmodifiablePostConditions());
+		preConditions.removeIf(v -> v.getName().equals(""));
+		
+		String result =  String.join(" & ", postConditions);
+		
+		return replaceOldKeyword(result, oldReplacements);
 	}
 	
-	private String getGlobalConditionsString() {
+	private String getGlobalConditionsString(Map<String, OldReplacement> oldReplacements) {
 		String result = globalConditions.stream()
 				.map(Condition::getName)
 				.map(this::replaceThisWithSelf)
+				.map(this::renameCondition)
 				.collect(Collectors.joining(" & "));
-		if (result.equals("")) {
-			return null;
-		}
-		return result;
+						
+		return replaceOldKeyword(result, oldReplacements);
 	}
 	
-	private String getConditionObjectsCreatedString() {
-		//TODO Improve model to get rid of instanceof checks
+	private String getConditionObjectsCreatedString(Map<String, OldReplacement> oldReplacements) {
 		List<String> conditions = new ArrayList<>();
-		for (BaseVariable var : programVariables) {
-			if (var instanceof JavaVariable) {
-				if (((JavaVariable) var).getKind() == VariableKind.PARAM && var.isIsNonNull() && !isSimpleType(var.getType())) {
-					conditions.add(var.getType() + "::exactInstance(" + var.getName() + ") = TRUE");
-					conditions.add(var.getName() + ".<created> = TRUE");
-					conditions.add(var.getName() + "!= null");
-				}
-				else if (var.getType().endsWith("[]")) {
-					conditions.add(var.getName() + ".<created> = TRUE");
-				}
+		for (JavaVariable var : programVariables.getVariables()) {
+			String type = getTypeFromVar(var.getName());
+			String name = getNameFromVar(var.getName());
+			if (var.getKind() == VariableKind.PARAM && isNonNull(var)) {
+				addNonNullCondition(conditions, type, name);
 			}
-			else if (var instanceof Parameter) {
-				if (var.getType().endsWith("[]")) {
-					conditions.add(var.getName() + ".<created> = TRUE");
-				}
-				if (var.isIsNonNull() && !isSimpleType(var.getType())) {
-					conditions.add(var.getType() + "::exactInstance(" + var.getName() + ") = TRUE");
-					conditions.add(var.getName() + ".<created> = TRUE");
-					conditions.add(var.getName() + "!= null");
-				}
+			else if (isArray(var)) {
+				conditions.add(name + ".<created> = TRUE");
 			}
-			else if (var instanceof Field && !isSimpleType(var.getType())) {
-				conditions.add(var.getType() + "::exactInstance(self." + var.getName() + ") = TRUE");
-				conditions.add("self." + var.getName() + ".<created> = TRUE");
-				conditions.add("self." + var.getName() + "!= null");
+		}
+		for (Parameter param : programVariables.getParams()) {
+			if (isArray(param)) {
+				conditions.add(param.getName() + ".<created> = TRUE");
+			}
+			if (isNonNull(param)) {
+				addNonNullCondition(conditions, removeStaticNonNull(param.getType()), removeStaticNonNull(param.getName()));
+			}
+		}
+		for (Field field : programVariables.getFields()) {
+			addNonNullCondition(conditions, field.getType(), "self." + field.getName());
+		}
+		
+		for (String unmodifiableVar : unmodifiableVars) {
+			if (isArray(unmodifiableVar)) {
+				String varName = getNameFromVar(unmodifiableVar);
+				
+				conditions.add(varName + "_old.<created> = TRUE");
 			}
 		}
 		
-		if (conditions.size() == 0) {
-			return null;
+		for (String var : oldReplacements.keySet()) {	
+			if (isArray(var)) {
+				conditions.add(removeStaticNonNull(var) + oldReplacements.get(var).index + OLD_VARS_SUFFIX + ".<created>=TRUE");
+			}
 		}
+		
 		return String.join(" & ", conditions);
 	}
 	
-	private String getSelfConditionsString() {
-		return null;
+	private void addNonNullCondition(List<String> conditions, String type, String name) {
+		if (!isSimpleType(type)) {
+			conditions.add(type + "::exactInstance(" + name + ") = TRUE");
+			conditions.add(name + ".<created> = TRUE");
+			conditions.add(name + "!= null");
+		}
 	}
 	
-	private String getAssignment() {
-		return null;
+	private String getSelfConditionsString() {
+		return "";
+	}
+	
+	private String getAssignmentString(Map<String, OldReplacement> oldReplacements) {
+        List<String> assignments = new ArrayList<>();
+        assignments.add("heapAtPre := heap");
+        assignments.addAll(getUnmodifiableAssignments());
+        assignments.addAll(getOldAssignments(oldReplacements));
+        
+        assignments.removeIf(v -> v.equals(""));
+	    
+	    return String.join(" || ", assignments); 
+	}
+	
+	private List<String> getUnmodifiableAssignments() {
+		List<String> assignments = new ArrayList<>();
+		for (String var : unmodifiableVars) {
+			String varName = var.substring(var.lastIndexOf(" ") + 1);
+			varName = removeStaticNonNull(varName);
+			assignments.add(varName + "_old := " + varName);
+		}
+		
+		return assignments;
+	}
+	
+	private List<String> getOldAssignments(Map<String, OldReplacement> oldReplacements) {
+		List<String> assignments = new ArrayList<>();
+		for (String var : oldReplacements.keySet()) {
+			if (!getPreConditionsString(oldReplacements).contains("\\old(" + var + ")")) {
+				assignments.add(removeStaticNonNull(var) + oldReplacements.get(var).index + OLD_VARS_SUFFIX + ":=" + var);
+			}
+		}
+		
+		return assignments;
+	}
+	
+	private List<String> getUnmodifiableProgramVars() {
+		List<String> vars = new ArrayList<>();
+		for (String var : unmodifiableVars) {
+			vars.add(removeStaticNonNull(var) + "_old");
+		}
+		
+		return vars;
+	}
+	
+	private List<String> getUnmodifiablePostConditions() {
+		List<String> conds = new ArrayList<>();
+		for (String var : unmodifiableVars) {
+			String varName = var.substring(var.lastIndexOf(" ") + 1);
+			varName = varName.replace("static", "").replace(" non-null", "");
+			conds.add(MessageFormat.format("{0} = {1}_old", varName, varName));
+		}
+		
+		return conds;
 	}
 	
 	private String replaceThisWithSelf(String string) {
@@ -289,5 +396,313 @@ public class KeYFileContent {
 	
 	private boolean isSimpleType(String type) {
 		return type.matches("^(void|byte|short|int|double|char|long|float|boolean)$");
+	}
+	
+	private String renameCondition(String condition) {
+		String result = condition;
+		
+		if (this.renaming != null) {
+			for (Rename rename : this.renaming.getRename()) {
+				if (rename.getType().equalsIgnoreCase("boolean")) {
+					result = result.replaceAll(rename.getNewName(), "TRUE=" + rename.getFunction());
+				} else {
+					result = result.replaceAll(rename.getNewName(), rename.getFunction());
+				}
+			}
+		}
+		return result;
+	}
+	
+	private String renameStatement(String statement) {
+		String result = statement;
+		
+		if (this.renaming != null) {
+			for (Rename rename : renaming.getRename()) {
+				result = result.replaceAll(rename.getNewName(), rename.getFunction());
+			}
+		}
+		return result;
+	}
+	
+	private List<String> extractOldKeywordVariables() {
+		// Clear the list of replacements
+		List<String> oldKeywords = new LinkedList<>();
+		ArrayList<Integer> beginIndizes = new ArrayList<>();
+		ArrayList<Integer> endIndizes = new ArrayList<>();
+		int openParenthesisCounter = 0;
+		/*
+		 * Iterate over current modified array access. Count the start and end indizes
+		 * of first-level parenthesis.
+		 */
+		String conditions = Stream.of(preConditions, postConditions, globalConditions).flatMap(List::stream).map(Condition::getName).collect(Collectors.joining(" & "));
+		String currentOldMatch = conditions;
+		if (currentOldMatch.contains("\\old(")) {
+			for (int i = currentOldMatch.indexOf("\\old"); i < currentOldMatch.length(); i++) {
+				if (currentOldMatch.charAt(i) == '(') {
+					if (openParenthesisCounter == 0) {
+						beginIndizes.add(i + 1);
+					}
+					openParenthesisCounter++;
+				}
+				if (currentOldMatch.charAt(i) == ')') {
+					openParenthesisCounter--;
+					if (openParenthesisCounter == 0) {
+						endIndizes.add(i);
+						if (currentOldMatch.substring(i + 1).contains("\\old")) {
+							int newIndex = currentOldMatch.indexOf("\\old", i);
+							if (newIndex > 0)
+								i = newIndex;
+						} else {
+							break;
+						}
+					}
+				}
+			}
+			for (int i1 = 0; i1 < beginIndizes.size(); i1++) {
+				String content = currentOldMatch.substring(beginIndizes.get(i1), endIndizes.get(i1));
+				if (!content.isEmpty()) {
+					oldKeywords.add(content);
+				}
+			}
+		}
+		return oldKeywords;
+	}
+	
+	private Map<String, OldReplacement> addOldVariables(CbCFormula formula, List<String> oldKeywords) {
+		Map<String, OldReplacement> newReplacements = new HashMap<>();
+		// Add new old variables to variable List
+		int counterForVarNaming = 0;
+		for (String varUsedInOldContext : oldKeywords) {
+			counterForVarNaming++;
+			// Get variable name with variable kind
+			String var = "";
+			String lastVarUsedInOldContext = varUsedInOldContext.substring(varUsedInOldContext.lastIndexOf(".") + 1);
+			// Replace brackets
+			lastVarUsedInOldContext = lastVarUsedInOldContext.replaceAll("\\[.*\\]", "");
+			// This split only works with no method calls that have "." as parameter
+			// arguments.
+			String[] splittedReplacementVar = varUsedInOldContext.split("\\.");
+			boolean isFunction = lastVarUsedInOldContext.contains("(");
+			if (isFunction) {
+				// Check all diagram method signatures for return value of said object.
+				// Get return type of function Call
+				// If no function can be found give error message so developer
+				// can modify the condition.
+				String functionName = splittedReplacementVar[splittedReplacementVar.length - 1];
+				functionName = functionName.substring(0, functionName.indexOf("("));
+				boolean found = false;
+				String signatureOfFunction = "";
+				for (String sig : this.returnTypeMap.keySet()) {
+					if (sig.equals(functionName)) {
+						found = true;
+						signatureOfFunction = sig;
+						break;
+					}
+				}
+				if (!found && functionName.equals("size")) {
+					Console.println("Did not find function " + varUsedInOldContext
+							+ " in Diagrams. Matching size and assuming function returns int.");
+					var = "int " + functionName;
+					lastVarUsedInOldContext = lastVarUsedInOldContext.substring(0,
+							lastVarUsedInOldContext.indexOf("("));
+				}
+				// If found, get return type of method
+				if (found) {
+					String returnTypeOfFunction = returnTypeMap.get(signatureOfFunction);
+					var = returnTypeOfFunction + " " + functionName;
+				} else {
+					Console.println("Did not find function " + functionName + " in Diagrams.");
+				}
+			} else {
+				/*
+				 * If variable is in current method or class, check vars in diagram. If variable
+				 * is not in current diagram, check all diagrams. Iterate over each nested
+				 * variable and get Datatype.
+				 */
+				String currentClassName = splittedReplacementVar[0].replaceAll("\\[.*\\]", "");
+				boolean isFirstAccessedVarInCurrentClass = false;
+				int startIndex = 1;
+				for (JavaVariable v : programVariables.getVariables()) {
+					if (v.getName().replace("non-null", "").substring(v.getName().indexOf(" ") + 1)
+							.equals(splittedReplacementVar[0].replaceAll("\\[.*\\]", "")))
+						isFirstAccessedVarInCurrentClass = true;
+				}
+				for (Field f : programVariables.getFields()) {
+					if (f.getName().equals(splittedReplacementVar[0].replaceAll("\\[.*\\]", "")))
+						isFirstAccessedVarInCurrentClass = true;
+				}
+				if (currentClassName.startsWith("self") || currentClassName.startsWith("this")
+						|| isFirstAccessedVarInCurrentClass) {
+					currentClassName = formula.getClassName();
+				}
+				if (isFirstAccessedVarInCurrentClass)
+					startIndex = 0;
+				String currentVarName = "";
+				Field nestedVariable = null;
+				boolean found = false;
+				boolean penultimateIsArray = false;
+				boolean accessArray = false;
+				String penultimateVarName = "";
+				for (int i = startIndex; i < splittedReplacementVar.length; i++) {
+					currentVarName = splittedReplacementVar[i];
+					accessArray = currentVarName.contains("[");
+					// Replace brackets
+					currentVarName = currentVarName.replaceAll("\\[.*\\]", "");
+					if (methodClassVarMap.keySet().contains(currentClassName)) {
+						for (Field methodVar : methodClassVarMap.get(currentClassName)) {
+							String methodVarType = methodVar.getType();
+							String methodVarName = methodVar.getName();
+							if (methodVarType.contains("[]") && methodVarName.equals(currentVarName)
+									&& splittedReplacementVar.length >= 2 && i == (splittedReplacementVar.length - 2)) {
+								penultimateIsArray = true;
+								penultimateVarName = currentVarName;
+							}
+							if (methodVarName.equals(lastVarUsedInOldContext)) {
+								nestedVariable = methodVar;
+								currentVarName = methodVarName;
+								found = true;
+							}
+							if (methodClassVarMap.containsKey(methodVarType)) {
+								currentClassName = methodVarType;
+							}
+						}
+					}
+					if (found) {
+						break;
+					}
+				}
+				// Last variable name should be the the wanted variable!
+				if (currentVarName.equals(lastVarUsedInOldContext) && nestedVariable != null) {
+					var = nestedVariable.getType() + " "
+							+ nestedVariable.getName().replace("static", "").replace("non-null", "");
+					if (accessArray) {
+						var = nestedVariable.getType() + " " + nestedVariable.getName().replace("static", "")
+								.replace("non-null", "").replaceAll("\\[.*\\]", "");
+					}
+				}
+				if (currentVarName.equals("length") && penultimateIsArray) {
+					var = "int " + penultimateVarName + "_" + "length";
+				}
+			}
+			if (!var.isEmpty()) {
+				/*
+				 * VarType::(heap, null, Class::$varName) What about access to static variables
+				 * from other classes? Class.varName => we got the class name! But no VarType
+				 */
+				// EDIT: counterForVarNaming didn't exist until VarCorC OO, Hashmap needs more
+				// detailed key, as only varname_oldVal may not be unique
+				String varNameWithOldSuffix = var.substring(var.lastIndexOf(" ") + 1) + counterForVarNaming
+						+ OLD_VARS_SUFFIX;
+				// Add new modified replacements to map.
+				newReplacements.put(varNameWithOldSuffix, new OldReplacement(varUsedInOldContext, counterForVarNaming));
+			}
+		}
+		return newReplacements;
+	}
+	
+	private String replaceOldKeyword(String condition, Map<String, OldReplacement> replacements) {
+		for (String key : replacements.keySet()) {
+			String varNameOnly = key.substring(key.lastIndexOf(".") + 1);
+			varNameOnly = varNameOnly.replaceAll("\\[.*\\]", "");
+			if (varNameOnly.contains("("))
+				varNameOnly = varNameOnly.substring(0, varNameOnly.indexOf("("));
+
+			condition = condition.replace("\\old(" + replacements.get(key).var + ")", varNameOnly);
+		}
+		if (condition.contains("\\old")) {
+			Console.println("Unsupported usage of \\old keyword in condition: '" + condition + "'");
+		}
+		return condition;
+	}
+
+	private Map<String, List<Field>> initMethodClassVarMap() {
+		Map<String, List<Field>> methodClassVarMap = new HashMap<>();
+		IProject project = FileUtil.getProjectFromProjectPath(location);
+		Collection<Resource> resources = FileUtil.getCbCClasses(project);
+		for (Resource resource : resources) {
+			for (EObject object : resource.getContents()) {
+				if (object instanceof ModelClass) {
+					ModelClass modelClass = (ModelClass) object;
+					if (!methodClassVarMap.containsKey(modelClass.getName())) {
+						methodClassVarMap.put(modelClass.getName(), new ArrayList<>());
+					}
+					methodClassVarMap.get(modelClass.getName()).addAll(modelClass.getFields());
+				}
+			}
+		}
+		
+		return methodClassVarMap;
+	}
+
+
+
+	private Map<String, String> initReturnTypeMap() {
+		Map<String, String> returnTypeMap = new HashMap<>();
+		IProject project = FileUtil.getProjectFromProjectPath(location);
+		Collection<Resource> resources = FileUtil.getCbCClasses(project);
+		for (Resource resource : resources) {
+			for (EObject object : resource.getContents()) {
+				if (object instanceof ModelClass) {
+					ModelClass modelClass = (ModelClass) object;
+					for (Method method : modelClass.getMethods()) {
+						returnTypeMap.put(method.getName(), method.getReturnType());
+					}
+				}
+			}
+		}
+		
+		return returnTypeMap;
+	}
+	
+	private static class OldReplacement {
+		private String var;
+		private int index;
+		
+		OldReplacement(String var, int index) {
+			this.var = var;
+			this.index = index;
+		}
+		
+		public String getVar() {
+			return var;
+		}
+		
+		public int getIndex() {
+			return index;
+		}
+	}
+	
+	private String removeStaticNonNull(String varName) {
+		return varName.replace("static", "").replace("non-null", "").trim();
+	}
+	
+	private String getTypeFromVar(String varName) {
+		varName = removeStaticNonNull(varName);
+		return varName.substring(0, varName.indexOf(" "));
+	}
+	
+	private String getNameFromVar(String varName) {
+		varName = removeStaticNonNull(varName);
+		return varName.substring(varName.lastIndexOf(" ")).trim();
+	}
+	
+	private boolean isNonNull(JavaVariable var) {
+		return var.getName().contains("non-null");
+	}
+	
+	private boolean isNonNull(Parameter param) {
+		return (param.getType() + " " + param.getName()).contains("non-null");
+	}
+	
+	private boolean isArray(JavaVariable var) {
+		return isArray(var.getName());
+	}
+	
+	private boolean isArray(Parameter param) {
+		return isArray(param.getType() + " " + param.getName());
+	}
+	
+	private boolean isArray(String var) {
+		return var.contains("[]");
 	}
 }

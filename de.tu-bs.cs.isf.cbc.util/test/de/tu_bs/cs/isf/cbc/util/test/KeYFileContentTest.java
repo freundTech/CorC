@@ -24,6 +24,7 @@ import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.ModelClass;
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Parameter;
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Visibility;
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.impl.ModelClassImpl;
+import de.tu_bs.cs.isf.cbc.cbcmodel.CbCFormula;
 import de.tu_bs.cs.isf.cbc.cbcmodel.CbcmodelFactory;
 import de.tu_bs.cs.isf.cbc.cbcmodel.CbcmodelPackage;
 import de.tu_bs.cs.isf.cbc.cbcmodel.Condition;
@@ -31,6 +32,7 @@ import de.tu_bs.cs.isf.cbc.cbcmodel.GlobalConditions;
 import de.tu_bs.cs.isf.cbc.cbcmodel.JavaVariable;
 import de.tu_bs.cs.isf.cbc.cbcmodel.JavaVariables;
 import de.tu_bs.cs.isf.cbc.cbcmodel.VariableKind;
+import de.tu_bs.cs.isf.cbc.util.Console;
 import de.tu_bs.cs.isf.cbc.util.FileUtil;
 import de.tu_bs.cs.isf.cbc.util.KeYFileContent;
 
@@ -41,8 +43,14 @@ class KeYFileContentTest {
 		Collection<Resource> resources = new ArrayList<>();
 		Resource resource = mock(Resource.class);
 		
+		Field field = CbcclassFactory.eINSTANCE.createField();
+		field.setName("foo");
+		field.setType("int");
+		
 		EList<EObject> classes = new BasicEList<>();
 		ModelClass class_ = CbcclassFactory.eINSTANCE.createModelClass();
+		class_.setName("TestClass");
+		class_.getFields().add(field);
 		
 		classes.add(class_);
 		
@@ -615,6 +623,87 @@ JavaVariable var;
 				+ "    )"
 				+ "}",
 				content.getKeYStatementContent());
+	}
+	
+	@Test
+	void testOld() {
+		EList<JavaVariable> list = new BasicEList<>();
+		JavaVariable var;
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setName("int foo");
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setName("static int bar");
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setName("non-null int foobar");
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setName("static non-null int baz");
+		list.add(var);
+		
+		
+		JavaVariables variables = CbcmodelFactory.eINSTANCE.createJavaVariables();
+		variables.eSet(CbcmodelPackage.eINSTANCE.getJavaVariables_Variables(), list);
+		
+		
+		content.readVariables(variables);
+		
+		EList<Condition> condList = new BasicEList<>();
+		Condition cond;
+		
+		cond = CbcmodelFactory.eINSTANCE.createCondition();
+		cond.setName("\\old(foo) == foo - 1");
+		condList.add(cond);
+		
+		cond = CbcmodelFactory.eINSTANCE.createCondition();
+		cond.setName("cond2");
+		condList.add(cond);
+		
+		cond = CbcmodelFactory.eINSTANCE.createCondition();
+		cond.setName("cond3");
+		condList.add(cond);
+		
+		
+		GlobalConditions conditions = CbcmodelFactory.eINSTANCE.createGlobalConditions();
+		conditions.eSet(CbcmodelPackage.eINSTANCE.getGlobalConditions_Conditions(), condList);
+		
+		content.readGlobalConditions(conditions);
+		
+		CbCFormula formula = CbcmodelFactory.eINSTANCE.createCbCFormula();
+		formula.setClassName("TestClass");
+		content.addSelf(formula);
+		
+		
+		try (MockedStatic<Console> mocked = mockStatic(Console.class)) {
+			assertEqualsNormalized(
+					"\\javaSource \"location/src\";"
+					+ "\\include \"helper.key\";"
+					+ "\\programVariables {"
+					+ "    int foo;"
+					+ "    int bar;"
+					+ "    int foobar;"
+					+ "    int baz;"
+					+ "    int foo1_oldVal;"
+					+ "    Heap heapAtPre;"
+					+ "}"
+					+ "\\problem {"
+					+ "    ("
+					+ "        &foo1_oldVal == foo - 1"
+					+ "        &cond2"
+					+ "        &cond3"
+					+ "        &wellFormed(heap)"
+					+ "    ) -> {"
+					+ "        heapAtPre := heap"
+					+ "        || foo1_oldVal := foo"
+					+ "    } \\<{}\\> ()"
+					+ "}",
+					content.getKeYStatementContent());
+		}
 	}
 	
 	static void assertEqualsNormalized(String expected, String actual) {

@@ -1,14 +1,25 @@
 package de.tu_bs.cs.isf.cbc.util.test;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
+import java.util.Collection;
+
+import org.eclipse.core.resources.IProject;
 import org.eclipse.emf.common.util.BasicEList;
 import org.eclipse.emf.common.util.EList;
+import org.eclipse.emf.ecore.EObject;
+import org.eclipse.emf.ecore.resource.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.CbcclassFactory;
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Field;
+import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.ModelClass;
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Parameter;
 import de.tu_bs.cs.isf.cbc.cbcclass.model.cbcclass.Visibility;
 import de.tu_bs.cs.isf.cbc.cbcmodel.CbcmodelFactory;
@@ -18,17 +29,40 @@ import de.tu_bs.cs.isf.cbc.cbcmodel.GlobalConditions;
 import de.tu_bs.cs.isf.cbc.cbcmodel.JavaVariable;
 import de.tu_bs.cs.isf.cbc.cbcmodel.JavaVariables;
 import de.tu_bs.cs.isf.cbc.cbcmodel.VariableKind;
+import de.tu_bs.cs.isf.cbc.util.FileUtil;
 import de.tu_bs.cs.isf.cbc.util.KeYFileContent;
 
 class KeYFileContentTest {
 	KeYFileContent content;
 
-	@BeforeEach
-	void before() {
-		content = new KeYFileContent();
-		content.setLocation("location/");
-		content.setSrcFolder("src");
-	}
+    Collection<Resource> createMockResources() {
+    	Collection<Resource> resources = new ArrayList<>();
+    	Resource resource = mock(Resource.class);
+    	
+    	EList<EObject> classes = new BasicEList<>();
+    	ModelClass class_ = CbcclassFactory.eINSTANCE.createModelClass();
+    	
+    	classes.add(class_);
+    	
+    	when(resource.getContents()).thenReturn(classes);
+    	
+    	return resources;
+    }
+    
+    @BeforeEach
+    void before() {
+    	IProject mockedProject = mock(IProject.class);
+    	Collection<Resource> resources = createMockResources();
+    	
+    	try (MockedStatic<FileUtil> mocked = mockStatic(FileUtil.class)){
+    		mocked.when(() -> FileUtil.getProjectFromProjectPath("location/")).thenReturn(mockedProject);
+    		mocked.when(() -> FileUtil.getCbCClasses(mockedProject)).thenReturn(resources);
+    		
+    		content = new KeYFileContent();
+    		content.setLocation("location/");
+    		content.setSrcFolder("src");
+    	}
+    }
 
 	@Test
 	void testEmptyKeyFile() {

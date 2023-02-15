@@ -563,7 +563,7 @@ public class KeYFileContent {
 			condition = condition.replace(replacements.get(key), varNameOnly);
 		}
 		if (condition.contains("\\old")) {
-			Console.println("Unsupported usage of \\old keyword in condition: '" + condition + "'");
+			System.out.println("Unsupported usage of \\old keyword in condition: '" + condition + "'");
 		}
 		return condition;
 	}

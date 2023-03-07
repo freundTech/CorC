@@ -695,7 +695,76 @@ class KeYFileContentTest {
 				+ "        || foobar_old := foobar"
 				+ "        || baz_old := baz"
 				+ "    } \\<{}\\> ("
-				+ "        &foo = foo_old"
+				+ "        & foo = foo_old"
+				+ "        & bar = bar_old"
+				+ "        & foobar = foobar_old"
+				+ "        & baz = baz_old"
+				+ "    )"
+				+ "}",
+				content.getKeYStatementContent());
+	}
+	
+	@Test
+	void testAddUnmofiableVarsArray() {
+		EList<JavaVariable> list = new BasicEList<>();
+		JavaVariable var;
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setName("int[] foo");
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setName("static int[] bar");
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setName("non-null int[] foobar");
+		list.add(var);
+		
+		var = CbcmodelFactory.eINSTANCE.createJavaVariable();
+		var.setName("static non-null int[] baz");
+		list.add(var);
+		
+		
+		JavaVariables variables = CbcmodelFactory.eINSTANCE.createJavaVariables();
+		variables.eSet(CbcmodelPackage.eINSTANCE.getJavaVariables_Variables(), list);
+		
+		
+		content.readVariables(variables);
+		content.addUnmodifiableVars(list.stream().map(JavaVariable::getName).toList());
+		assertEqualsNormalized(
+				"\\javaSource \"location/src\";"
+				+ "\\include \"helper.key\";"
+				+ "\\programVariables {"
+				+ "    int[] foo;"
+				+ "    int[] bar;"
+				+ "    int[] foobar;"
+				+ "    int[] baz;"
+				+ "    int[] foo_old;"
+				+ "    int[] bar_old;"
+				+ "    int[] foobar_old;"
+				+ "    int[] baz_old;"
+				+ "    Heap heapAtPre;"
+				+ "}"
+				+ "\\problem {"
+				+ "    ("
+				+ "        &foo.<created>=TRUE"
+				+ "        &bar.<created>=TRUE"
+				+ "        &foobar.<created>=TRUE"
+				+ "        &baz.<created>=TRUE"
+				+ "        &foo_old.<created>=TRUE"
+				+ "        &bar_old.<created>=TRUE"
+				+ "        &foobar_old.<created>=TRUE"
+				+ "        &baz_old.<created>=TRUE"
+				+ "        &wellFormed(heap)"
+				+ "    ) -> {"
+				+ "        heapAtPre := heap"
+				+ "        || foo_old := foo"
+				+ "        || bar_old := bar"
+				+ "        || foobar_old := foobar"
+				+ "        || baz_old := baz"
+				+ "    } \\<{}\\> ("
+				+ "        & foo = foo_old"
 				+ "        & bar = bar_old"
 				+ "        & foobar = foobar_old"
 				+ "        & baz = baz_old"
